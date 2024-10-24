@@ -1,0 +1,70 @@
+---
+- name: Install Jenkins
+  hosts: local
+  become: yes
+
+  tasks:
+    - name: Clean apt cache
+      apt:
+        update_cache: yes
+        autoclean: yes
+
+    - name: Install Java (OpenJDK)
+      apt:
+        name: openjdk-11-jdk
+        state: present
+
+    - name: Remove any existing Jenkins repository configurations
+      file:
+        path: /etc/apt/sources.list.d/jenkins.list
+        state: absent
+
+    - name: Remove any existing Jenkins repository key
+      file:
+        path: /usr/share/keyrings/jenkins-keyring.asc
+        state: absent
+
+    - name: Download Jenkins repository key
+      command: wget -O /usr/share/keyrings/jenkins-keyring.asc https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+      register: download_key_result
+
+    - name: Debug download key result
+      debug:
+        var: download_key_result
+
+    - name: Add Jenkins repository
+      lineinfile:
+        path: /etc/apt/sources.list.d/jenkins.list
+        line: 'deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/'
+        create: yes
+
+    - name: Check contents of Jenkins sources list
+      command: cat /etc/apt/sources.list.d/jenkins.list
+      register: cat_sources_list
+
+    - name: Debug contents of Jenkins sources list
+      debug:
+        var: cat_sources_list
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: List available Jenkins packages
+      command: apt-cache policy jenkins
+      register: apt_cache_policy
+
+    - name: Debug available Jenkins packages
+      debug:
+        var: apt_cache_policy
+
+    - name: Install Jenkins
+      apt:
+        name: jenkins
+        state: present
+
+    - name: Start Jenkins service
+      systemd:
+        name: jenkins
+        state: started
+        enabled: yes
